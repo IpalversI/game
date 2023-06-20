@@ -1,146 +1,180 @@
-////////////////////////////////////////////////////////////
-// Headers
-////////////////////////////////////////////////////////////
-#include <SFML/Window.hpp>
-#include <SFML/OpenGL.hpp>
-
-
-////////////////////////////////////////////////////////////
-/// Entry point of application
-///
-/// \return Application exit code
-///
-////////////////////////////////////////////////////////////
+#include <SFML/Graphics.hpp>
+#include <windows.h>
+#include <stdlib.h>
+#include <String>
+#include <iostream>
+using namespace sf;
+using namespace std;
 int main()
 {
-    // Request a 24-bits depth buffer when creating the window
-    sf::ContextSettings contextSettings;
-    contextSettings.depthBits = 24;
-
-    // Create the main window
-    sf::Window window(sf::VideoMode(640, 480), "SFML window with OpenGL", sf::Style::Default, contextSettings);
-
-    // Make it the active window for OpenGL calls
-    window.setActive();
-
-    // Set the color and depth clear values
-    glClearDepth(1.f);
-    glClearColor(0.f, 0.f, 0.f, 1.f);
-
-    // Enable Z-buffer read and write
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-
-    // Disable lighting and texturing
-    glDisable(GL_LIGHTING);
-    glDisable(GL_TEXTURE_2D);
-
-    // Configure the viewport (the same size as the window)
-    glViewport(0, 0, window.getSize().x, window.getSize().y);
-
-    // Setup a perspective projection
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    GLfloat ratio = static_cast<float>(window.getSize().x) / window.getSize().y;
-    glFrustum(-ratio, ratio, -1.f, 1.f, 1.f, 500.f);
-
-    // Define a 3D cube (6 faces made of 2 triangles composed by 3 vertices)
-    GLfloat cube[] =
-    {
-        // positions    // colors (r, g, b, a)
-        -50, -50, -50,  0, 0, 1, 1,
-        -50,  50, -50,  0, 0, 1, 1,
-        -50, -50,  50,  0, 0, 1, 1,
-        -50, -50,  50,  0, 0, 1, 1,
-        -50,  50, -50,  0, 0, 1, 1,
-        -50,  50,  50,  0, 0, 1, 1,
-
-         50, -50, -50,  1, 1, 1, 1,
-         50,  50, -50,  1, 1, 1, 1,
-         50, -50,  50,  1, 1, 1, 1,
-         50, -50,  50,  1, 1, 1, 1,
-         50,  50, -50,  1, 1, 1, 1,
-         50,  50,  50,  1, 1, 1, 1,
-
-        -50, -50, -50,  1, 0, 0, 1,
-         50, -50, -50,  1, 0, 0, 1,
-        -50, -50,  50,  1, 0, 0, 1,
-        -50, -50,  50,  1, 0, 0, 1,
-         50, -50, -50,  1, 0, 0, 1,
-         50, -50,  50,  1, 0, 0, 1,
-
-        -50,  50, -50,  0, 1, 1, 1,
-         50,  50, -50,  0, 1, 1, 1,
-        -50,  50,  50,  0, 1, 1, 1,
-        -50,  50,  50,  0, 1, 1, 1,
-         50,  50, -50,  0, 1, 1, 1,
-         50,  50,  50,  0, 1, 1, 1,
-
-        -50, -50, -50,  1, 0, 1, 1,
-         50, -50, -50,  1, 0, 1, 1,
-        -50,  50, -50,  1, 0, 1, 1,
-        -50,  50, -50,  1, 0, 1, 1,
-         50, -50, -50,  1, 0, 1, 1,
-         50,  50, -50,  1, 0, 1, 1,
-
-        -50, -50,  50,  1, 1, 0, 1,
-         50, -50,  50,  1, 1, 0, 1,
-        -50,  50,  50,  1, 1, 0, 1,
-        -50,  50,  50,  1, 1, 0, 1,
-         50, -50,  50,  1, 1, 0, 1,
-         50,  50,  50,  1, 1, 0, 1,
+    srand(time(NULL));
+    RenderWindow window(VideoMode(600, 600), "palvers works!");
+    const int H = 17;
+    const int W = 50;
+    float CurrentFrame = 0;
+    float i = 0.1;
+    int timer = -1;
+    bool flag1 = 0,flag2 = 0,flag3 = 0, pers = 0;
+    Sprite s, decor, m1, m2, m3;
+    Texture t, t1, t2, t3;
+    t.loadFromFile("wizard.png");
+    t1.loadFromFile("Slime.png");
+    t2.loadFromFile("mushroom.png");
+    t3.loadFromFile("Wall.png");
+    s.setTexture(t);
+    m1.setTexture(t2);
+    m2.setTexture(t2);
+    m3.setTexture(t2);
+    decor.setTexture(t3);
+    s.setTextureRect (IntRect(0, 0, 32, 32));
+    m1.setTextureRect (IntRect(0, 0, 16, 16));
+    m2.setTextureRect (IntRect(16, 0, 16, 16));
+    m3.setTextureRect (IntRect(32, 0, 16, 16));
+    decor.setTextureRect (IntRect(0, 0, 32, 32));
+    m1.setPosition (75, 75);
+    m2.setPosition (100, 100);
+    m3.setPosition (50, 50);
+    m1.setPosition (rand()%550 + 25, rand()%550 + 25);
+    m2.setPosition (rand()%550 + 25, rand()%550 + 25);
+    m3.setPosition (rand()%550 + 25, rand()%550 + 25);
+    String TileMap[H] = {
+    "11111111111111111111111111111111111111111111111111",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "10000000000000000000000000000000000000000000000001",
+    "11111111111111111111111111111111111111111111111111"
     };
-
-    // Enable position and color vertex components
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    glVertexPointer(3, GL_FLOAT, 7 * sizeof(GLfloat), cube);
-    glColorPointer(4, GL_FLOAT, 7 * sizeof(GLfloat), cube + 3);
-
-    // Disable normal and texture coordinates vertex components
-    glDisableClientState(GL_NORMAL_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
-    // Create a clock for measuring the time elapsed
-    sf::Clock clock;
-
-    // Start the game loop
     while (window.isOpen())
     {
-        // Process events
-        sf::Event event;
+        FloatRect UserBox = s.getGlobalBounds();
+        FloatRect OtherBox1 = m1.getGlobalBounds();
+        FloatRect OtherBox2 = m2.getGlobalBounds();
+        FloatRect OtherBox3 = m3.getGlobalBounds();
+        Event event;
         while (window.pollEvent(event))
         {
-            // Close window: exit
-            if (event.type == sf::Event::Closed)
+            if (event.type == Event::Closed)
+            {
                 window.close();
-
-            // Escape key: exit
-            if ((event.type == sf::Event::KeyPressed) && (event.key.code == sf::Keyboard::Escape))
-                window.close();
-
-            // Resize event: adjust the viewport
-            if (event.type == sf::Event::Resized)
-                glViewport(0, 0, event.size.width, event.size.height);
+            }
         }
-
-        // Clear the color and depth buffers
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // Apply some transformations to rotate the cube
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-        glTranslatef(0.f, 0.f, -200.f);
-        glRotatef(clock.getElapsedTime().asSeconds() * 50, 1.f, 0.f, 0.f);
-        glRotatef(clock.getElapsedTime().asSeconds() * 30, 0.f, 1.f, 0.f);
-        glRotatef(clock.getElapsedTime().asSeconds() * 90, 0.f, 0.f, 1.f);
-
-        // Draw the cube
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-
-        // Finally, display the rendered frame on screen
+        if(Keyboard::isKeyPressed(Keyboard::W))
+        {
+            if (pers == 1)
+            {
+                CurrentFrame += 0.005;
+			    if (CurrentFrame > 1) CurrentFrame -= 1;
+			    s.setTextureRect(IntRect(16 * int(CurrentFrame), 0, 16, 16));
+		    	s.move(0, -i);
+            }
+            else
+            {
+                CurrentFrame += 0.005;
+		    	if (CurrentFrame > 4) CurrentFrame -= 4;
+			    s.setTextureRect(IntRect(32 * int(CurrentFrame), 64, 32, 32));
+			    s.move(0, -i);
+            }
+        }
+        if(Keyboard::isKeyPressed(Keyboard::A))
+        {
+            if (pers == 1)
+            {
+                CurrentFrame += 0.005;
+			    if (CurrentFrame > 1) CurrentFrame -= 1;
+			    s.setTextureRect(IntRect(16 * int(CurrentFrame), 48, 16, 16));
+		    	s.move(-i, 0);
+            }
+            else
+            {
+                CurrentFrame += 0.005;
+		    	if (CurrentFrame > 4) CurrentFrame -= 4;
+			    s.setTextureRect(IntRect(32 * int(CurrentFrame), 32, 32, 32));
+			    s.move(-i, 0);
+            }
+        }
+        if(Keyboard::isKeyPressed(Keyboard::S))
+        {
+            if (pers == 1)
+            {
+                CurrentFrame += 0.005;
+			    if (CurrentFrame > 1) CurrentFrame -= 1;
+			    s.setTextureRect(IntRect(16 * int(CurrentFrame), 16, 16, 16));
+		    	s.move(0, i);
+            }
+            else
+            {
+                CurrentFrame += 0.005;
+		    	if (CurrentFrame > 4) CurrentFrame -= 4;
+			    s.setTextureRect(IntRect(32 * int(CurrentFrame), 96, 32, 32));
+			    s.move(0, i);
+            }
+        }
+        if (Keyboard::isKeyPressed(Keyboard::D)) {
+            if (pers == 1)
+            {
+                CurrentFrame += 0.005;
+			    if (CurrentFrame > 1) CurrentFrame -= 1;
+			    s.setTextureRect(IntRect(16 * int(CurrentFrame), 32, 16, 16));
+		    	s.move(i, 0);
+            }
+            else
+            {
+                CurrentFrame += 0.005;
+		    	if (CurrentFrame > 4) CurrentFrame -= 4;
+			    s.setTextureRect(IntRect(32 * int(CurrentFrame), 0, 32, 32));
+			    s.move(i, 0);
+            }
+		}
+        if (pers == 1) s.setTexture(t1);
+        else s.setTexture(t);
+        if(UserBox.intersects (OtherBox1) && !flag1)
+        {
+            timer = 3200;
+            i = 0.175;
+            flag1=true;
+        }
+        if(UserBox.intersects (OtherBox2) && !flag2)
+        {
+            pers = 1;
+            flag2=true;
+        }
+        if(UserBox.intersects (OtherBox3) && !flag3)
+        {
+            pers = 0;
+            i = 0.1;
+            flag3=true;
+        }
+        if (timer == 0)
+        {
+            i = 0.1;
+        }
+        window.clear(Color::White);
+        for (int y = 0; y < H; y++){
+            for (int x = 0; x < W; x++){
+                    if (TileMap[y][x] == '1') {
+                    decor.setTextureRect (IntRect(0, 0, 32, 32));
+                    decor.setPosition(32 * x, 32 * y);
+                    window.draw(decor);}
+            }
+        }
+        if (!flag1) window.draw(m1);
+        if (!flag2) window.draw(m2);
+        if (!flag3) window.draw(m3);
+        window.draw(s);
         window.display();
+        timer--;
     }
-
-    return EXIT_SUCCESS;
+    return 0;
 }
