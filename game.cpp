@@ -3,6 +3,7 @@
 #include <SFML/System/Time.hpp>
 #include <fstream>
 #include <iostream>
+#include <math.h>
 #include <string>
 using namespace sf;
 using namespace std;
@@ -12,18 +13,22 @@ int main() {
     Vector2f positionScreen(0, 0);
     int windowSizeX = 640;
     int windowSizeY = 480;
+    int r1Player, r2Player, radius = 128;
+    float dx, dy, zx, zy;
     View view(FloatRect(0, 0, windowSizeX, windowSizeY));
     RenderWindow window(VideoMode(windowSizeX, windowSizeY), "palvers works!");
     bool flag1 = 0, flag2 = 0, flag3 = 0, key = 0;
-    Sprite s, decor;
-    Texture t, tileset;
+    float enemy_speed_x, enemy_speed_y;
+    Sprite s, npc, decor;
+    Texture t, tnpc, tileset;
     float CurrentFrame = 0;
     Clock clock;
     float x = 0, y = 0;
-    float speed = 250;
+    float speed = 75, npcspeed = 30;
     float timer = 0;
     int H = 0;
     int W = 0;
+    float k = 0;
     vector<string> TileMap;
     ifstream mapfile("map");
     string line;
@@ -42,16 +47,21 @@ int main() {
     int vw = W * 32 - windowSizeX;
     int vh = H * 32 - windowSizeY;
     t.loadFromFile("Sprites.png");
+    tnpc.loadFromFile("LabNPCs.png");
     tileset.loadFromFile("tileset.png");
     s.setTexture(t);
+    npc.setTexture(tnpc);
     decor.setTexture(tileset);
     s.setTextureRect(IntRect(0, 0, 24, 32));
+    npc.setTextureRect(IntRect(204, 16, 24, 32));
     decor.setTextureRect(IntRect(32, 32, 32, 32));
+    npc.setPosition(450, 64);
     while (window.isOpen()) {
         float elapsed = clock.restart().asSeconds();
         x = s.getPosition().x;
         y = s.getPosition().y;
         FloatRect UserBox = s.getGlobalBounds();
+        FloatRect NpcBox = npc.getGlobalBounds();
         Event event;
         while (window.pollEvent(event)) {
             if (event.type == Event::Closed) {
@@ -81,6 +91,43 @@ int main() {
         if (Keyboard::isKeyPressed(Keyboard::D) || Keyboard::isKeyPressed(Keyboard::Right)) {
             s.setTextureRect(IntRect(24 * int(CurrentFrame), 32 + pers * 128, 24, 32));
             s.move(speed * elapsed, 0);
+        }
+        // if (npc.getPosition().x == 450) {
+        //     if (npc.getPosition().y == 64) {
+        //         enemy_speed_x = 0;
+        //         enemy_speed_y = 0;
+        //     }
+        // }
+        // if (npc.getPosition().x == 450) {
+        //     if (npc.getPosition().y == 300) {
+        //         enemy_speed_x = -0;
+        //         enemy_speed_y = 0;
+        //     }
+        // }
+        // if (npc.getPosition().x == 300) {
+        //     if (npc.getPosition().y == 300) {
+        //         enemy_speed_x = 0;
+        //         enemy_speed_y = -0;
+        //     }
+        // }
+        // if (npc.getPosition().x == 300) {
+        //     if (npc.getPosition().y == 64) {
+        //         enemy_speed_x = 0;
+        //         enemy_speed_y = 0;
+        //     }
+        // }
+        // npc.move(enemy_speed_x, enemy_speed_y);
+        dx = s.getPosition().x - npc.getPosition().x;
+        dy = s.getPosition().y - npc.getPosition().y;
+        float d = sqrt(pow(dx, 2) + pow(dy, 2));
+        if (d <= radius) {
+            if (d <= npcspeed * elapsed) {
+                npc.setPosition(s.getPosition().x, s.getPosition().y);
+            } else {
+                dx = dx / d;
+                dy = dy / d;
+                npc.move(dx * npcspeed * elapsed, dy * npcspeed * elapsed);
+            }
         }
         if (TileMap[int((s.getPosition().y + 16) / 32)][int((s.getPosition().x) / 32) * 2] == '#' ||
             TileMap[int((s.getPosition().y + 16) / 32)]
@@ -157,6 +204,7 @@ int main() {
             }
         }
         window.draw(s);
+        window.draw(npc);
         window.display();
     }
     return 0;
