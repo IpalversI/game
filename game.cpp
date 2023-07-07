@@ -5,230 +5,298 @@
 #include <iostream>
 #include <math.h>
 #include <string>
+
 using namespace sf;
 using namespace std;
-int main() {
-    srand(time(NULL));
-    int pers = 0;
-    Vector2f positionScreen(0, 0);
-    int windowSizeX = 640;
-    int windowSizeY = 480;
-    int r1Player, r2Player, radius = 128;
-    float dx, dy, zx, zy;
-    View view(FloatRect(0, 0, windowSizeX, windowSizeY));
-    RenderWindow window(VideoMode(windowSizeX, windowSizeY), "palvers works!");
-    bool flag1 = 0, flag2 = 0, flag3 = 0, key = 0;
-    float enemy_speed_x, enemy_speed_y;
-    Sprite s, npc, decor;
-    Texture t, tnpc, tileset;
-    float CurrentFrame = 0, npcCurrentFrame = 0;
-    Clock clock;
-    float x = 0, y = 0, npcx = 0, npcy = 0;
-    float speed = 75, npcspeed = 30;
-    float timer = 0;
-    int H = 0;
-    int W = 0;
-    float k = 0;
-    vector<string> TileMap;
-    ifstream mapfile("map");
-    string line;
-    s.setPosition(50, 50);
-    while (getline(mapfile, line)) {
-        line.pop_back();
-        TileMap.push_back(line);
-        int n = TileMap[H].length();
-        if (W != 0 && W != n / 2) {
-            cout << "ERROR: Map width mismatch!" << endl;
-            return 1;
+
+struct Map {
+    vector<string> tilemap;
+    int h = 0;
+    int w = 0;
+    Texture texture;
+    Map(string file, string textureFile) {
+        ifstream mapfile(file);
+        string line;
+        while (getline(mapfile, line)) {
+            line.pop_back();
+            tilemap.push_back(line);
+            int n = tilemap[h].length();
+            if (w != 0 && w != n / 2) {
+                cout << "ERROR: Map width mismatch!" << endl;
+                exit(1);
+            }
+            w = n / 2;
+            h++;
         }
-        W = n / 2;
-        H++;
+        texture.loadFromFile(textureFile);
     }
-    int vw = W * 32 - windowSizeX;
-    int vh = H * 32 - windowSizeY;
-    t.loadFromFile("Sprites.png");
-    tnpc.loadFromFile("LabNPCs.png");
-    tileset.loadFromFile("tileset.png");
-    s.setTexture(t);
-    npc.setTexture(tnpc);
-    decor.setTexture(tileset);
-    s.setTextureRect(IntRect(0, 0, 24, 32));
-    npc.setTextureRect(IntRect(204, 16, 24, 32));
-    decor.setTextureRect(IntRect(32, 32, 32, 32));
-    npc.setPosition(450, 64);
+    char at(int x, int y) { return tilemap[y][x * 2]; }
+    Sprite spriteAt(int x, int y) {
+        Sprite sprite;
+        sprite.setTexture(texture);
+        int entity;
+        int style;
+        if (tilemap[y][x * 2] == ' ') {
+            entity = 0;
+        } else if (tilemap[y][x * 2] == '#') {
+            entity = 2;
+        } else if (tilemap[y][x * 2] == 'D') {
+            entity = 5;
+        } else if (tilemap[y][x * 2] == 'K') {
+            entity = 6;
+        } else if (tilemap[y][x * 2] == '~') {
+            entity = 7;
+        } else {
+            cout << "ERROR: Incorrect map tile!" << tilemap[y][x * 2] << endl;
+            exit(1);
+        }
+        if ('0' <= tilemap[y][x * 2 + 1] && tilemap[y][x * 2 + 1] <= '9') {
+            style = tilemap[y][x * 2 + 1] - '0';
+        } else if (islower(tilemap[y][x * 2 + 1])) {
+            style = tilemap[y][x * 2 + 1] - 'a';
+            entity++;
+        } else if (isupper(tilemap[y][x * 2 + 1])) {
+            style = tilemap[y][x * 2 + 1] - 'A';
+            entity += 2;
+        } else if (tilemap[y][x * 2 + 1] == ' ') {
+            style = 0;
+        } else {
+            cout << "ERROR: Incorrect map tile style!";
+            exit(1);
+        }
+        sprite.setTextureRect(IntRect(style * 32, entity * 32, 32, 32));
+        sprite.setPosition(x * 32, y * 32);
+        return sprite;
+    }
+};
+
+struct Character {
+    int style;
+    int direction;
+    float x;
+    float y;
+    float speed;
+    float currentFrame;
+    int width;
+    int shift;
+    Texture texture;
+    Character(string file) {
+        style = 0;
+        speed = 75;
+        width = 24;
+        shift = 0;
+        texture.loadFromFile(file);
+    }
+    void update(float elapsed) {
+        currentFrame += 6 * elapsed;
+        if (currentFrame >= 3) currentFrame -= 3;
+    }
+    void move(Map map, float elapsed, float dx, float dy) {
+        float d = sqrt(pow(dx, 2) + pow(dy, 2));
+        if (d != 0) {
+            dx /= d;
+            dy /= d;
+            x += dx * speed * elapsed;
+            y += dy * speed * elapsed;
+            bool oj = false;
+            for (int ty = 0; ty < map.h && oj; ty++) {
+                for (int tx = 0; tx < map.w && oj; tx++) {
+                    if (FloatRect(tx * 32, ty * 32, 32, 32)
+                            .intersects(FloatRect(x, y, width, 32))) {
+                        if (map.at(x, y) == '#') {
+                            x -= dx * speed * elapsed;
+                            oj = true;
+                        }
+                    }
+                }
+            }
+            if (oj) {
+                oj = false;
+                for (int ty = 0; ty < map.h && oj; ty++) {
+                    for (int tx = 0; tx < map.w && oj; tx++) {
+                        if (FloatRect(tx * 32, ty * 32, 32, 32)
+                                .intersects(FloatRect(x, y, width, 32))) {
+                            if (map.at(x, y) == '#') {
+                                x += dx * speed * elapsed;
+                                y -= dx * speed * elapsed;
+                                oj = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if (oj) {
+                oj = false;
+                for (int ty = 0; ty < map.h && oj; ty++) {
+                    for (int tx = 0; tx < map.w && oj; tx++) {
+                        if (FloatRect(tx * 32, ty * 32, 32, 32)
+                                .intersects(FloatRect(x, y, width, 32))) {
+                            if (map.at(x, y) == '#') {
+                                x -= dx * speed * elapsed;
+                                oj = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if (abs(dx) >= abs(dy)) {
+                if (dx > 0) {
+                    direction = 1;
+                } else {
+                    direction = 3;
+                }
+            } else if (dy > 0) {
+                direction = 2;
+            } else {
+                direction = 0;
+            }
+        }
+    }
+    Sprite sprite() {
+        Sprite sprite;
+        sprite.setTexture(texture);
+        sprite.setTextureRect(
+            IntRect(width * int(currentFrame), direction * 32 + style * 128, 24, 32));
+        sprite.setPosition(x, y);
+        return sprite;
+    }
+};
+
+int main() {
+    const int windowWidth = 640;
+    const int windowHeight = 480;
+
+    srand(time(NULL));
+
+    Character player("Sprites.png");
+    player.x = 50;
+    player.y = 50;
+
+    Character npc("LabNPCs.png");
+    npc.x = 100;
+    npc.y = 100;
+    npc.shift = 204;
+    npc.width = 32;
+    npc.speed = 30;
+
+    RenderWindow window(VideoMode(windowWidth, windowHeight), "palvers works!");
+
+    Map map("map", "tileset.png");
+
+    Clock clock;
     while (window.isOpen()) {
         float elapsed = clock.restart().asSeconds();
-        x = s.getPosition().x;
-        y = s.getPosition().y;
-        npcx = npc.getPosition().x;
-        npcy = npc.getPosition().y;
-        FloatRect UserBox = s.getGlobalBounds();
-        FloatRect NpcBox = npc.getGlobalBounds();
+        player.update(elapsed);
+
         Event event;
         while (window.pollEvent(event)) {
             if (event.type == Event::Closed) {
                 window.close();
             }
         }
-        CurrentFrame += 6 * elapsed;
-        npcCurrentFrame += 3 * elapsed;
-        if (CurrentFrame >= 3) CurrentFrame -= 3;
-        if (npcCurrentFrame >= 3) npcCurrentFrame -= 3;
+
         if (Keyboard::isKeyPressed(Keyboard::Num1)) {
-            pers = 0;
+            player.style = 0;
         }
         if (Keyboard::isKeyPressed(Keyboard::Num2)) {
-            pers = 1;
+            player.style = 1;
         }
+
+        float dx = 0;
+        float dy = 0;
         if (Keyboard::isKeyPressed(Keyboard::W) || Keyboard::isKeyPressed(Keyboard::Up)) {
-            s.setTextureRect(IntRect(24 * int(CurrentFrame), pers * 128, 24, 32));
-            s.move(0, -speed * elapsed);
+            dy -= 1;
         }
         if (Keyboard::isKeyPressed(Keyboard::A) || Keyboard::isKeyPressed(Keyboard::Left)) {
-            s.setTextureRect(IntRect(24 * int(CurrentFrame), 96 + pers * 128, 24, 32));
-            s.move(-speed * elapsed, 0);
+            dx -= 1;
         }
         if (Keyboard::isKeyPressed(Keyboard::S) || Keyboard::isKeyPressed(Keyboard::Down)) {
-            s.setTextureRect(IntRect(24 * int(CurrentFrame), 64 + pers * 128, 24, 32));
-            s.move(0, speed * elapsed);
+            dy += 1;
         }
         if (Keyboard::isKeyPressed(Keyboard::D) || Keyboard::isKeyPressed(Keyboard::Right)) {
-            s.setTextureRect(IntRect(24 * int(CurrentFrame), 32 + pers * 128, 24, 32));
-            s.move(speed * elapsed, 0);
+            dx += 1;
         }
-        // if (npc.getPosition().x == 450) {
-        //     if (npc.getPosition().y == 64) {
-        //         enemy_speed_x = 0;
-        //         enemy_speed_y = 0;
-        //     }
-        // }
-        // if (npc.getPosition().x == 450) {
-        //     if (npc.getPosition().y == 300) {
-        //         enemy_speed_x = -0;
-        //         enemy_speed_y = 0;
-        //     }
-        // }
-        // if (npc.getPosition().x == 300) {
-        //     if (npc.getPosition().y == 300) {
-        //         enemy_speed_x = 0;
-        //         enemy_speed_y = -0;
-        //     }
-        // }
-        // if (npc.getPosition().x == 300) {
-        //     if (npc.getPosition().y == 64) {
-        //         enemy_speed_x = 0;
-        //         enemy_speed_y = 0;
-        //     }
-        // }
-        // npc.move(enemy_speed_x, enemy_speed_y);
-        dx = s.getPosition().x - npc.getPosition().x;
-        dy = s.getPosition().y - npc.getPosition().y;
+        player.move(map, elapsed, dx, dy);
+
+        dx = player.x - npc.x;
+        dy = player.y - npc.y;
         float d = sqrt(pow(dx, 2) + pow(dy, 2));
-        if (d <= radius) {
-            if (d <= npcspeed * elapsed) {
-                npc.setPosition(s.getPosition().x, s.getPosition().y);
+        if (d <= 128) {
+            if (d <= npc.speed * elapsed) {
+                npc.x = player.x;
+                npc.y = player.y;
             } else {
-                dx = dx / d;
-                dy = dy / d;
-                npc.move(dx * npcspeed * elapsed, dy * npcspeed * elapsed);
-            }
-            if (abs(dx) > abs(dy) && dx  >=0) npc.setTextureRect(IntRect(204 + 32 * int(npcCurrentFrame), 64, 24, 32));
-            if (abs(dy) > abs(dx) && dy  >= 0) npc.setTextureRect(IntRect(204 + 32 * int(npcCurrentFrame), 16, 24, 32));
-            if (abs(dy) > abs(dx) && dy < 0) npc.setTextureRect(IntRect(204 + 32 * int(npcCurrentFrame), 160, 24, 32));
-            if (abs(dx) >= abs(dy) && dx  < 0) npc.setTextureRect(IntRect(204 + 32 * int(npcCurrentFrame), 112, 24, 32));
-        }
-        if (TileMap[int((s.getPosition().y + 16) / 32)][int((s.getPosition().x) / 32) * 2] == '#' ||
-            TileMap[int((s.getPosition().y + 16) / 32)][(int((s.getPosition().x - 8) / 32) + 1) * 2] == '#' ||
-            TileMap[int((s.getPosition().y) / 32) + 1][int((s.getPosition().x) / 32) * 2] == '#' ||
-            TileMap[int((s.getPosition().y) / 32) + 1][(int((s.getPosition().x - 8) / 32) + 1) * 2] == '#') {
-            s.setPosition(x, y);
-        }
-        if (TileMap[int((s.getPosition().y + 16) / 32)][int((s.getPosition().x) / 32) * 2] == '~' ||
-            TileMap[int((s.getPosition().y + 16) / 32)][(int((s.getPosition().x - 8) / 32) + 1) * 2] == '~' ||
-            TileMap[int((s.getPosition().y) / 32) + 1][int((s.getPosition().x) / 32) * 2] == '~' ||
-            TileMap[int((s.getPosition().y) / 32) + 1][(int((s.getPosition().x - 8) / 32) + 1) * 2] == '~') {
-            s.setPosition(x, y);
-        }
-        if (TileMap[int((s.getPosition().y + 16) / 32)][int((s.getPosition().x) / 32) * 2] == 'D' ||
-            TileMap[int((s.getPosition().y + 16) / 32)][(int((s.getPosition().x - 8) / 32) + 1) * 2] == 'D' ||
-            TileMap[int((s.getPosition().y) / 32) + 1][int((s.getPosition().x) / 32) * 2] == 'D' ||
-            TileMap[int((s.getPosition().y) / 32) + 1][(int((s.getPosition().x - 8) / 32) + 1) * 2] == 'D') {
-            if (!key) s.setPosition(x, y);
-        }
-        if (TileMap[int((s.getPosition().y) / 32)][int((s.getPosition().x) / 32) * 2] == 'K') {
-            TileMap[int((s.getPosition().y) / 32)][int((s.getPosition().x) / 32) * 2] = ' ';
-            key = true;
-        }
-        if (TileMap[int((npc.getPosition().y + 16) / 32)][int((npc.getPosition().x) / 32) * 2] == '#' ||
-            TileMap[int((npc.getPosition().y + 16) / 32)][(int((npc.getPosition().x - 8) / 32) + 1) * 2] == '#' ||
-            TileMap[int((npc.getPosition().y) / 32) + 1][int((npc.getPosition().x) / 32) * 2] == '#' ||
-            TileMap[int((npc.getPosition().y) / 32) + 1][(int((npc.getPosition().x - 8) / 32) + 1) * 2] == '#') {
-            npc.setPosition(npcx, npcy);
-        }
-        if (TileMap[int((npc.getPosition().y + 15) / 32)][int((npc.getPosition().x) / 32) * 2] == '#' ||
-            TileMap[int((npc.getPosition().y) / 32) + 1][int((npc.getPosition().x) / 32) * 2] == '#' ) {
-            cout << "hdfhgdf\n";
-            if(rand()%2 == 0){
-                while(TileMap[int((npc.getPosition().y + 15) / 32)][int((npc.getPosition().x) / 32) * 2] == '#' ||
-            TileMap[int((npc.getPosition().y) / 32) + 1][int((npc.getPosition().x) / 32) * 2] == '#' ){
-                npc.move(npcspeed*elapsed, 0);
-                }
-            }else{
-                while(TileMap[int((npc.getPosition().y + 15) / 32)][int((npc.getPosition().x) / 32) * 2] == '#' ||
-            TileMap[int((npc.getPosition().y) / 32) + 1][int((npc.getPosition().x) / 32) * 2] == '#' ){
-                npc.move(-1*npcspeed*elapsed, 0);
-                }
+                npc.move(map, elapsed, dx, dy);
             }
         }
-        positionScreen.x = s.getPosition().x + 32 - (windowSizeX / 2);
-        positionScreen.y = s.getPosition().y + 32 - (windowSizeY / 2);
-        if (positionScreen.x < 0) positionScreen.x = 0;
-        else if (positionScreen.x > vw) positionScreen.x = vw;
-        if (positionScreen.y < 0) positionScreen.y = 0;
-        else if (positionScreen.y > vh) positionScreen.y = vh;
-        view.reset(FloatRect(positionScreen.x, positionScreen.y, windowSizeX, windowSizeY));
+
+        FloatRect view(player.x + 12 - windowWidth / 2, player.y + 16 - windowHeight / 2,
+                       windowWidth, windowHeight);
+        if (view.top < 0) view.top = 0;
+        if (view.left < 0) view.left = 0;
+        if (view.top > map.h * 32 - view.height) view.top = map.h * 32 - view.height;
+        if (view.left > map.h * 32 - view.width) view.left = map.h * 32 - view.width;
+
         window.clear(Color::Black);
-        window.setView(view);
-        for (int y = 0; y < H; y++) {
-            for (int x = 0; x < W; x++) {
-                int entity;
-                int style;
-                if (TileMap[y][x * 2] == ' ') {
-                    entity = 0;
-                } else if (TileMap[y][x * 2] == '#') {
-                    entity = 2;
-                } else if (TileMap[y][x * 2] == 'D') {
-                    entity = 5;
-                } else if (TileMap[y][x * 2] == 'K') {
-                    entity = 6;
-                } else if (TileMap[y][x * 2] == '~') {
-                    entity = 7;
-                } else {
-                    cout << "ERROR: Incorrect map tile!" << TileMap[y][x * 2] << endl;
-                    return 1;
-                }
-                if ('0' <= TileMap[y][x * 2 + 1] && TileMap[y][x * 2 + 1] <= '9') {
-                    style = TileMap[y][x * 2 + 1] - '0';
-                } else if (islower(TileMap[y][x * 2 + 1])) {
-                    style = TileMap[y][x * 2 + 1] - 'a';
-                    entity++;
-                } else if (isupper(TileMap[y][x * 2 + 1])) {
-                    style = TileMap[y][x * 2 + 1] - 'A';
-                    entity += 2;
-                } else if (TileMap[y][x * 2 + 1] == ' ') {
-                    style = 0;
-                } else {
-                    cout << "ERROR: Incorrect map tile style!";
-                    return 1;
-                }
-                decor.setTextureRect(IntRect(style * 32, entity * 32, 32, 32));
-                decor.setPosition(32 * x, 32 * y);
-                window.draw(decor);
+        window.setView(View(FloatRect(view.left, view.top, view.width, view.height)));
+        for (int y = 0; y < map.h; y++) {
+            for (int x = 0; x < map.w; x++) {
+                window.draw(map.spriteAt(x, y));
             }
         }
-        window.draw(s);
-        window.draw(npc);
+        window.draw(player.sprite());
+        window.draw(npc.sprite());
         window.display();
     }
     return 0;
 }
+
+// if (map.at(npc.x / 32, (npc.y + 15) / 32) == '#' ||
+//     map.at(npc.x / 32, (npc.y + 1) / 32 + 1) == '#') {
+//     cout << "ok" << endl;
+//     if (dx >= 0) {
+//         cout << "10\n\n\n";
+//         npc.move(npcspeed * elapsed, 2);
+//     }
+//     if (dx < 0) {
+//         cout << "11n\n\n";
+//         npc.move(-npcspeed * elapsed, 2);
+//     }
+// }
+// if (map.at((npc.x + 1) / 32, (npc.y) / 32 + 1) == '#' ||
+//     map.at((npc.x - 7) / 32 + 1, (npc.y) / 32 + 1) == '#') {
+//     cout << "ok" << endl;
+//     if (dy >= 0) {
+//         cout << "20\n\n\n";
+//         npc.move(0, npcspeed * elapsed);
+//     }
+//     if (dy < 0) {
+//         cout << "21\n\n\n";
+//         npc.move(0, -npcspeed * elapsed);
+//     }
+
+// if (npc.getPosition().x == 450) {
+//     if (npc.getPosition().y == 64) {
+//         enemy_speed_x = 0;
+//         enemy_speed_y = 0;
+//     }
+// }
+// if (npc.getPosition().x == 450) {
+//     if (npc.getPosition().y == 300) {
+//         enemy_speed_x = -0;
+//         enemy_speed_y = 0;
+//     }
+// }
+// if (npc.getPosition().x == 300) {
+//     if (npc.getPosition().y == 300) {
+//         enemy_speed_x = 0;
+//         enemy_speed_y = -0;
+//     }
+// }
+// if (npc.getPosition().x == 300) {
+//     if (npc.getPosition().y == 64) {
+//         enemy_speed_x = 0;
+//         enemy_speed_y = 0;
+//     }
+// }
+// npc.move(enemy_speed_x, enemy_speed_y);
